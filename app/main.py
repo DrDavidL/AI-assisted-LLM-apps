@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.cases import router as cases_router
+from app.api.transcripts import router as transcripts_router
 from app.config import settings
 from app.db.connection import close_pool, create_pool
 from app.db.queries import init_schema
@@ -43,3 +44,4 @@ app.add_middleware(
 )
 
 app.include_router(cases_router)
+app.include_router(transcripts_router)

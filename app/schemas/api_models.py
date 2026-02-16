@@ -38,3 +38,18 @@ class CaseListResponse(BaseModel):
     total: int
     page: int = Field(..., ge=1)
     page_size: int = Field(..., ge=1)
+
+
+# ── Transcript models ────────────────────────────────────────────────────────
+
+
+class TranscriptSaveRequest(BaseModel):
+    conversation_id: str
+    case_number: int
+    transcript: list[dict]
+
+
+class TranscriptSaveResponse(BaseModel):
+    conversation_id: str
+    case_number: int
+    created_at: str

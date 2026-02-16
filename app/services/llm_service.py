@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 import openai
 
 from app.config import settings
@@ -12,7 +14,8 @@ SYSTEM_PROMPT = (
     "You are a medical education case generator. Generate realistic, clinically accurate "
     "medical cases for computer science students learning about health informatics. "
     "Populate ALL fields with plausible clinical data. Return valid JSON matching the "
-    "provided schema exactly."
+    "provided schema exactly. "
+    "For case_id, always use a valid UUID v4 string (e.g. '550e8400-e29b-41d4-a716-446655440000')."
 )
 
 
@@ -32,22 +35,21 @@ async def generate_case(
     if prompt:
         user_parts.append(f"Additional context: {prompt}")
 
-    completion = await client.beta.chat.completions.parse(
+    response = await client.responses.parse(
         model=settings.OPENAI_MODEL,
-        messages=[
+        input=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": " ".join(user_parts)},
         ],
-        response_format=MedicalCase,
+        text_format=MedicalCase,
     )
 
-    message = completion.choices[0].message
-    if message.refusal:
-        raise ValueError(f"LLM refused to generate case: {message.refusal}")
-    if message.parsed is None:
+    case = response.output_parsed
+    if case is None:
         raise ValueError("LLM returned empty parsed response.")
 
-    case: MedicalCase = message.parsed
+    # Override LLM-generated case_id with a proper UUID
+    case.case_id = str(uuid.uuid4())
     if specialty:
         case.specialty = specialty
     if difficulty:

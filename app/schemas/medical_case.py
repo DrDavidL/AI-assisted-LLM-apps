@@ -325,6 +325,7 @@ class Plan(BaseModel):
 
 class MedicalCase(BaseModel):
     case_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    case_number: int | None = None
     case_title: str = ""
     specialty: str = "general"
     difficulty: Difficulty = Difficulty.MEDIUM
@@ -349,5 +350,15 @@ class MedicalCase(BaseModel):
     @field_validator("case_id", mode="before")
     @classmethod
     def ensure_uuid(cls, v: str) -> str:
-        uuid.UUID(v)  # raises ValueError if invalid
+        try:
+            uuid.UUID(v)
+        except (ValueError, AttributeError):
+            return str(uuid.uuid4())
+        return v
+
+    @field_validator("difficulty", mode="before")
+    @classmethod
+    def coerce_difficulty(cls, v):
+        if isinstance(v, str):
+            return Difficulty(v)
         return v

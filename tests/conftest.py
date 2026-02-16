@@ -20,6 +20,7 @@ def sample_case_data() -> dict:
     """Minimal valid MedicalCase as a dict."""
     return {
         "case_id": str(uuid.uuid4()),
+        "case_number": 1,
         "case_title": "Test Case: Chest Pain",
         "specialty": "cardiology",
         "difficulty": "medium",

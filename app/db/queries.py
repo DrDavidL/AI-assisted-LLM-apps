@@ -50,12 +50,19 @@ async def get_case_by_id(pool: asyncpg.Pool, case_id: str) -> dict | None:
     return dict(row) if row else None
 
 
+async def get_case_by_number(pool: asyncpg.Pool, case_number: int) -> dict | None:
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM cases WHERE case_number = $1", case_number)
+    return dict(row) if row else None
+
+
 async def list_cases(
     pool: asyncpg.Pool,
     *,
     page: int = 1,
     page_size: int = 20,
     specialty: str | None = None,
+    search: str | None = None,
 ) -> tuple[list[dict], int]:
     offset = (page - 1) * page_size
     conditions = []
@@ -64,6 +71,10 @@ async def list_cases(
     if specialty:
         conditions.append(f"specialty = ${len(params) + 1}")
         params.append(specialty)
+
+    if search:
+        conditions.append(f"case_title ILIKE ${len(params) + 1}")
+        params.append(f"%{search}%")
 
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
@@ -100,3 +111,39 @@ async def delete_case(pool: asyncpg.Pool, case_id: str) -> bool:
     async with pool.acquire() as conn:
         result = await conn.execute("DELETE FROM cases WHERE case_id = $1", uuid.UUID(case_id))
     return result == "DELETE 1"
+
+
+# ── Interview Transcripts ────────────────────────────────────────────────────
+
+
+async def insert_transcript(
+    pool: asyncpg.Pool,
+    *,
+    conversation_id: str,
+    case_number: int,
+    transcript: list[dict],
+) -> dict:
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO interview_transcripts (conversation_id, case_number, transcript)
+            VALUES ($1, $2, $3::jsonb)
+            ON CONFLICT (conversation_id) DO UPDATE
+                SET transcript = EXCLUDED.transcript,
+                    case_number = EXCLUDED.case_number
+            RETURNING *
+            """,
+            uuid.UUID(conversation_id),
+            case_number,
+            json.dumps(transcript),
+        )
+    return dict(row)
+
+
+async def list_transcripts_by_case(pool: asyncpg.Pool, case_number: int) -> list[dict]:
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM interview_transcripts WHERE case_number = $1 ORDER BY created_at DESC",
+            case_number,
+        )
+    return [dict(r) for r in rows]

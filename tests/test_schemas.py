@@ -79,10 +79,11 @@ class TestCaseIdValidation:
         case = MedicalCase.model_validate(sample_case_data)
         uuid.UUID(case.case_id)  # should not raise
 
-    def test_invalid_uuid_rejected(self, sample_case_data: dict):
+    def test_invalid_uuid_gets_replaced(self, sample_case_data: dict):
         sample_case_data["case_id"] = "not-a-uuid"
-        with pytest.raises(ValueError):
-            MedicalCase.model_validate(sample_case_data)
+        case = MedicalCase.model_validate(sample_case_data)
+        # Should auto-generate a valid UUID instead of raising
+        uuid.UUID(case.case_id)  # doesn't raise
 
 
 class TestDifficultyEnum:

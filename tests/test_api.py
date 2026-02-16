@@ -24,6 +24,16 @@ class TestListCases:
         assert data["items"] == []
         assert data["total"] == 0
 
+    def test_list_cases_with_search(self, client: TestClient, mock_pool):
+        with patch("app.api.cases.queries.list_cases", new_callable=AsyncMock) as mock_list:
+            mock_list.return_value = ([], 0)
+            resp = client.get("/api/v1/cases/", params={"search": "chest"})
+
+        assert resp.status_code == 200
+        mock_list.assert_called_once()
+        call_kwargs = mock_list.call_args
+        assert call_kwargs.kwargs.get("search") == "chest" or call_kwargs[1].get("search") == "chest"
+
 
 class TestGetCase:
     def test_get_case_not_found(self, client: TestClient, mock_redis):
@@ -41,6 +51,35 @@ class TestGetCase:
         resp = client.get(f"/api/v1/cases/{sample_case_data['case_id']}")
         assert resp.status_code == 200
         assert resp.json()["case_id"] == sample_case_data["case_id"]
+
+
+class TestGetCaseByNumber:
+    def test_get_case_by_number_not_found(self, client: TestClient, mock_pool):
+        with patch("app.api.cases.queries.get_case_by_number", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = None
+            resp = client.get("/api/v1/cases/by-number/999")
+
+        assert resp.status_code == 404
+
+    def test_get_case_by_number_success(self, client: TestClient, mock_pool, sample_case_data):
+        now = datetime.now(timezone.utc)
+        db_row = {
+            "case_id": uuid.UUID(sample_case_data["case_id"]),
+            "case_number": 1,
+            "case_title": sample_case_data["case_title"],
+            "specialty": sample_case_data["specialty"],
+            "difficulty": sample_case_data["difficulty"],
+            "case_data": sample_case_data,
+            "created_at": now,
+            "updated_at": now,
+        }
+        with patch("app.api.cases.queries.get_case_by_number", new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = db_row
+            resp = client.get("/api/v1/cases/by-number/1")
+
+        assert resp.status_code == 200
+        assert resp.json()["case_id"] == sample_case_data["case_id"]
+        assert resp.json()["case_number"] == 1
 
 
 class TestCreateCase:

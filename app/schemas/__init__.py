@@ -5,6 +5,8 @@ from app.schemas.api_models import (
     CaseGenerateRequest,
     CaseListResponse,
     CaseUpdateRequest,
+    TranscriptSaveRequest,
+    TranscriptSaveResponse,
 )
 from app.schemas.medical_case import Difficulty, MedicalCase
 
@@ -15,4 +17,6 @@ __all__ = [
     "CaseUpdateRequest",
     "Difficulty",
     "MedicalCase",
+    "TranscriptSaveRequest",
+    "TranscriptSaveResponse",
 ]

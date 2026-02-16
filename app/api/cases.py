@@ -30,6 +30,7 @@ def _row_to_case(row: dict) -> MedicalCase:
         data = json.loads(data)
     data.update(
         case_id=str(row["case_id"]),
+        case_number=row.get("case_number"),
         case_title=row["case_title"],
         specialty=row["specialty"],
         difficulty=row["difficulty"],
@@ -52,13 +53,14 @@ async def generate_case(
         prompt=body.prompt,
         difficulty=body.difficulty.value if body.difficulty else None,
     )
+    diff = case.difficulty.value if hasattr(case.difficulty, "value") else case.difficulty
     case_dict = case.model_dump(mode="json")
     await queries.insert_case(
         pool,
         case_id=case.case_id,
         case_title=case.case_title,
         specialty=case.specialty,
-        difficulty=case.difficulty.value,
+        difficulty=diff,
         case_data=case_dict,
     )
     await cache_service.set_cached_case(r, case.case_id, case_dict)
@@ -103,11 +105,25 @@ async def list_cases(
     page: int = 1,
     page_size: int = 20,
     specialty: str | None = None,
+    search: str | None = None,
     pool: asyncpg.Pool = Depends(get_db_pool),
 ):
-    rows, total = await queries.list_cases(pool, page=page, page_size=page_size, specialty=specialty)
+    rows, total = await queries.list_cases(
+        pool, page=page, page_size=page_size, specialty=specialty, search=search,
+    )
     items = [_row_to_case(r) for r in rows]
     return CaseListResponse(items=items, total=total, page=page, page_size=page_size)
+
+
+@router.get("/by-number/{case_number}", response_model=MedicalCase)
+async def get_case_by_number(
+    case_number: int,
+    pool: asyncpg.Pool = Depends(get_db_pool),
+):
+    row = await queries.get_case_by_number(pool, case_number)
+    if not row:
+        raise HTTPException(status_code=404, detail="Case not found")
+    return _row_to_case(row)
 
 
 @router.get("/{case_id}", response_model=MedicalCase)
