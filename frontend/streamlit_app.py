@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import io
 import json
+from datetime import datetime, timezone
 
+from docx import Document
 import streamlit as st
 
 from api_client import (
@@ -34,6 +37,149 @@ SPECIALTIES = [
     "emergency medicine",
     "internal medicine",
 ]
+
+# ── Helper: build case Word doc ──────────────────────────────────────────────
+
+
+def _build_case_docx(case: dict) -> bytes:
+    """Build a Word document from a case dict and return raw bytes."""
+    doc = Document()
+    doc.add_heading(case.get("case_title", "Untitled Case"), level=1)
+    doc.add_paragraph(
+        f"Case #{case.get('case_number', '—')} | "
+        f"Specialty: {case.get('specialty', '')} | "
+        f"Difficulty: {case.get('difficulty', '')} | "
+        f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}"
+    )
+
+    # Demographics
+    demo = case.get("demographics") or {}
+    if demo:
+        doc.add_heading("Demographics", level=2)
+        for k, v in demo.items():
+            if v is not None:
+                doc.add_paragraph(f"{k.replace('_', ' ').title()}: {v}")
+
+    # Chief Complaint & HPI
+    hpi = case.get("chief_complaint_hpi") or {}
+    if hpi:
+        doc.add_heading("Chief Complaint", level=2)
+        doc.add_paragraph(hpi.get("chief_complaint", ""))
+        doc.add_heading("HPI", level=2)
+        doc.add_paragraph(hpi.get("hpi_narrative", ""))
+
+    # Past Medical History
+    pmh = case.get("past_medical_history") or {}
+    if pmh:
+        doc.add_heading("Past Medical History", level=2)
+        for cond in pmh.get("conditions", []):
+            doc.add_paragraph(cond, style="List Bullet")
+
+    # Medications
+    meds = case.get("medications") or []
+    if meds:
+        doc.add_heading("Medications", level=2)
+        for m in meds:
+            doc.add_paragraph(
+                f"{m.get('name', '?')} {m.get('dose', '')} {m.get('route', '')} {m.get('frequency', '')}".strip(),
+                style="List Bullet",
+            )
+
+    # Allergies
+    allergies = case.get("allergies") or []
+    if allergies:
+        doc.add_heading("Allergies", level=2)
+        for a in allergies:
+            doc.add_paragraph(
+                f"{a.get('substance', '?')} — {a.get('reaction', '')} ({a.get('severity', '')})",
+                style="List Bullet",
+            )
+
+    # Social History
+    social = case.get("social_history") or {}
+    if social:
+        doc.add_heading("Social History", level=2)
+        for k, v in social.items():
+            if v is not None:
+                doc.add_paragraph(f"{k.replace('_', ' ').title()}: {v}")
+
+    # Family History
+    fhx = case.get("family_history") or []
+    if fhx:
+        doc.add_heading("Family History", level=2)
+        for member in fhx:
+            if isinstance(member, dict):
+                doc.add_paragraph(
+                    f"{member.get('relation', '?')}: {', '.join(member.get('conditions', []))}",
+                    style="List Bullet",
+                )
+            else:
+                doc.add_paragraph(str(member), style="List Bullet")
+
+    # Physical Exam
+    pe = case.get("physical_exam") or {}
+    if pe:
+        doc.add_heading("Physical Exam", level=2)
+        _write_nested_dict(doc, pe)
+
+    # Diagnostics
+    diag = case.get("diagnostics") or {}
+    if diag:
+        doc.add_heading("Diagnostics", level=2)
+        _write_nested_dict(doc, diag)
+
+    # Assessment
+    assess = case.get("assessment") or {}
+    if assess:
+        doc.add_heading("Assessment", level=2)
+        if assess.get("working_diagnosis"):
+            doc.add_paragraph(f"Working Diagnosis: {assess['working_diagnosis']}")
+        if assess.get("final_diagnosis"):
+            doc.add_paragraph(f"Final Diagnosis: {assess['final_diagnosis']}")
+        for ddx in assess.get("differential_diagnoses", []):
+            if isinstance(ddx, dict):
+                doc.add_paragraph(
+                    f"{ddx.get('rank', '?')}. {ddx.get('diagnosis', '?')} — {ddx.get('reasoning', '')}",
+                    style="List Bullet",
+                )
+
+    # Plan
+    plan = case.get("plan") or {}
+    if plan:
+        doc.add_heading("Plan", level=2)
+        for step in plan.get("steps", []):
+            if isinstance(step, dict):
+                doc.add_paragraph(
+                    f"[{step.get('category', '')}] {step.get('description', '')} (Priority: {step.get('priority', '')})",
+                    style="List Bullet",
+                )
+        if plan.get("disposition"):
+            doc.add_paragraph(f"Disposition: {plan['disposition']}")
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def _write_nested_dict(doc: Document, data: dict, level: int = 0) -> None:
+    """Recursively write a nested dict into a Word document."""
+    for k, v in data.items():
+        if v is None:
+            continue
+        label = k.replace("_", " ").title()
+        if isinstance(v, dict):
+            doc.add_paragraph(f"{label}:")
+            _write_nested_dict(doc, v, level + 1)
+        elif isinstance(v, list):
+            doc.add_paragraph(f"{label}:")
+            for item in v:
+                if isinstance(item, dict):
+                    doc.add_paragraph(json.dumps(item), style="List Bullet")
+                else:
+                    doc.add_paragraph(str(item), style="List Bullet")
+        else:
+            doc.add_paragraph(f"{label}: {v}")
+
 
 # ── Helper: load a case into session state for detail view ────────────────────
 
@@ -176,9 +322,20 @@ with tab_generate:
             st.json(case.get("assessment"))
             st.json(case.get("plan"))
 
-        if st.button("Open in Detail tab"):
-            _load_case(case)
-            st.rerun()
+        col_open, col_dl = st.columns(2)
+        with col_open:
+            if st.button("Open in Detail tab"):
+                _load_case(case)
+                st.rerun()
+        with col_dl:
+            docx_bytes = _build_case_docx(case)
+            st.download_button(
+                "Download Case (.docx)",
+                data=docx_bytes,
+                file_name=f"case_{case.get('case_number', case.get('case_id', 'unknown'))}.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                key="dl_gen_docx",
+            )
 
 # ── Tab 3: Case Detail ──────────────────────────────────────────────────────
 
@@ -208,6 +365,16 @@ with tab_detail:
             f"ID: {case_id} | "
             f"Specialty: {case.get('specialty', '')} | "
             f"Difficulty: {case.get('difficulty', '')}"
+        )
+
+        # Download as Word doc
+        docx_bytes = _build_case_docx(case)
+        st.download_button(
+            "Download Case (.docx)",
+            data=docx_bytes,
+            file_name=f"case_{case.get('case_number', case_id)}.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            key="dl_detail_docx",
         )
 
         # ── Section: Demographics ─────────────────────────────────────

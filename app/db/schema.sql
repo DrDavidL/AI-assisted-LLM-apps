@@ -33,3 +33,18 @@ CREATE TABLE IF NOT EXISTS interview_transcripts (
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_transcripts_case_number ON interview_transcripts (case_number);
+
+-- Evaluations
+CREATE TABLE IF NOT EXISTS evaluations (
+    evaluation_id  UUID PRIMARY KEY,
+    session_id     TEXT NOT NULL DEFAULT 'anonymous',
+    layer          TEXT NOT NULL,
+    result         JSONB NOT NULL,
+    model_used     TEXT NOT NULL,
+    token_usage    JSONB NOT NULL DEFAULT '{}',
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_evaluations_session ON evaluations (session_id);
+CREATE INDEX IF NOT EXISTS idx_evaluations_layer ON evaluations (layer);
+CREATE INDEX IF NOT EXISTS idx_evaluations_created ON evaluations (created_at);
