@@ -104,6 +104,62 @@ uv sync                  # installs exactly what uv.lock specifies
 
 ---
 
+## Running the Application
+
+You need **three terminals** (plus Redis) to run the full stack. Start them in order:
+
+### 1. Start Redis
+
+```bash
+redis-server
+```
+
+Redis must be running before the backend starts.
+
+### 2. Start the FastAPI backend (Terminal 1)
+
+```bash
+uv run uvicorn app.main:app --reload
+```
+
+Runs on **http://localhost:8000** by default. API docs are at `/docs`.
+
+### 3. Start the Case Generator frontend (Terminal 2)
+
+```bash
+uv run streamlit run frontend/streamlit_app.py
+```
+
+Runs on **http://localhost:8501**. This is the main UI for generating, browsing, and editing medical cases.
+
+### 4. Start the Patient Interview frontend (Terminal 3)
+
+```bash
+uv run streamlit run frontend/interview_app.py --server.port 8502
+```
+
+Runs on **http://localhost:8502**. Voice-based patient interview practice using audio models.
+
+### 5. Start the Evaluation Dashboard (Terminal 4)
+
+```bash
+uv run streamlit run frontend/evaluation_dashboard.py --server.port 8503
+```
+
+Runs on **http://localhost:8503**. Upload transcripts for multidimensional evaluation with radar-chart results.
+
+### Quick start summary
+
+| Service | Command | URL |
+|---------|---------|-----|
+| Redis | `redis-server` | `localhost:6379` |
+| FastAPI backend | `uv run uvicorn app.main:app --reload` | `localhost:8000` |
+| Case Generator UI | `uv run streamlit run frontend/streamlit_app.py` | `localhost:8501` |
+| Patient Interview | `uv run streamlit run frontend/interview_app.py --server.port 8502` | `localhost:8502` |
+| Evaluation Dashboard | `uv run streamlit run frontend/evaluation_dashboard.py --server.port 8503` | `localhost:8503` |
+
+---
+
 ## .gitignore — Set This Up First
 
 **Before your very first commit**, make sure `.gitignore` is in place. This is not optional — it is the single most important step for protecting API keys and credentials.
@@ -257,13 +313,19 @@ else:
 ```
 AI-assisted-LLM-apps/
 ├── app/
-│   ├── api/              # FastAPI route handlers
+│   ├── api/              # FastAPI route handlers (cases, transcripts)
+│   ├── evaluation/       # Evaluation engine, rubrics, and API router
 │   ├── schemas/          # Pydantic models (LLM + DB)
-│   ├── services/         # Business logic (LLM calls, voice, caching)
+│   ├── services/         # Business logic (LLM calls, caching)
 │   ├── db/               # Neon/Postgres connection + queries
+│   ├── config.py         # Settings loaded from .env
 │   └── main.py           # FastAPI app entrypoint
 ├── frontend/
-│   └── streamlit_app.py  # Streamlit UI
+│   ├── api_client.py             # Shared HTTP client for the backend API
+│   ├── streamlit_app.py          # Case Generator UI
+│   ├── interview_app.py          # Patient Interview UI (voice)
+│   └── evaluation_dashboard.py   # Evaluation Dashboard UI
+├── sample_data/           # Example transcripts for evaluation testing
 ├── tests/
 ├── .env.example           # Template for required env vars (safe to commit)
 ├── .gitignore             # Keeps secrets and generated files out of git
