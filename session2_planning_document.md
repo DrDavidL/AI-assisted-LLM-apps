@@ -260,45 +260,6 @@ Create `src/frontend/pages/3_Evaluation_Dashboard.py`:
 - These load as defaults when the page first opens for demo purposes
 ```
 
----
-
-## Session 2 Slide Deck Narrative (Speaker Notes)
-
-### Slide 1 — Title
-Welcome to Session 2. Last time we built the simulator; today we build the instrument that tells us whether it's working.
-
-### Slide 2 — Context
-Session 1 gave us case generation, a simulated patient engine, and a Streamlit prototype. But without evaluation, we have no way to know if the simulation is educationally valid or if the patient is faithful to the case.
-
-### Slide 3 — Why Evaluate
-Four critical reasons: hallucination detection (LLMs will add symptoms not in the case), educational validity (we need measurable outcomes), drift/degradation (model updates break things), and accreditation (quantitative data for LCME/ACGME).
-
-### Slide 4 — Taxonomy
-Four families of evaluation approaches. Reference-based metrics (BLEU, ROUGE) don't work well here because there's no single correct conversation. Human expert review is gold standard but doesn't scale. LLM-as-Judge is our primary approach — scalable, customizable rubrics. Hybrid approaches use LLM pre-screening with human audit of edge cases.
-
-### Slide 5 — LLM-as-Judge Principles
-Five key design principles from the literature. Structured rubrics beat free-form (Zheng et al., 2023). Chain-of-thought before scoring reduces position bias. Multi-dimensional decomposition gives actionable feedback. Bias mitigation through randomized orderings. Calibration against human ground truth — report inter-rater reliability.
-
-### Slide 6 — Two Evaluation Layers
-The key insight: case fidelity and student performance are orthogonal. A perfectly faithful simulated patient can still receive a poor student. A brilliant student can look bad if the simulator hallucinates. We must measure both independently.
-
-### Slide 7–8 — Rubrics
-Walk through the rubric tables. Note the behavioral anchors at 1, 3, 5. The anchors should be specific enough that two raters would agree. These will be encoded as structured data in the evaluation prompt.
-
-### Slide 9 — Architecture
-Three-stage pipeline. Inputs are structured. The evaluation engine assembles the prompt, calls Claude with tool_use for structured output, and returns dimensional scores with evidence citations.
-
-### Slide 10 — Prompt Structure
-Show the XML-tagged prompt structure. Key elements: case description, transcript, rubric, and explicit CoT instructions. The judge must cite specific transcript turn numbers.
-
-### Slide 11 — Building with Claude Code
-Three Claude Code prompts that will scaffold the entire evaluation system. Prompt 1 builds the engine. Prompt 2 adds database persistence. Prompt 3 creates the dashboard.
-
-### Slide 12 — Live Demo
-Run the evaluation app against a sample transcript. Show the radar chart, evidence citations, and feedback report.
-
-### Slide 13 — Takeaways
-Evaluation is mandatory. LLM-as-Judge scales with good rubrics. Separate what you evaluate. Preview Session 3: reliability testing with multi-model consensus.
 
 ---
 
